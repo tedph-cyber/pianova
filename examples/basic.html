@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pianova – basic demo</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f5f5f5;
+      padding: 40px 20px;
+    }
+    h1 { margin: 0 0 4px; font-weight: 500; font-size: 1.2rem; }
+    .info { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+    #piano { padding: 20px; background: #222; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  </style>
+</head>
+<body>
+  <h1>pianova</h1>
+  <p class="info">Default range C2–C6 · Click/touch or use QWERTY keyboard</p>
+  <div id="piano"></div>
+  <script type="module">
+    import { Piano } from '../dist/pianova.mjs';
+
+    const piano = new Piano({ root: '#piano' });
+
+    piano.on('noteOn', (n) => console.log('on', n.name));
+    piano.on('noteOff', (n) => console.log('off', n.name));
+  </script>
+</body>
+</html>

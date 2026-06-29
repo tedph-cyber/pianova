@@ -1,0 +1,51 @@
+{
+  "name": "pianova",
+  "version": "0.1.0",
+  "description": "A vanilla TypeScript piano keyboard component with built-in Web Audio synthesis",
+  "type": "module",
+  "main": "dist/pianova.cjs",
+  "module": "dist/pianova.mjs",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/pianova.mjs",
+      "require": "./dist/pianova.cjs",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "examples",
+    "pianova.png"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "start": "npx serve examples -l 3000 --no-clipboard",
+    "serve": "npx serve examples",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "piano",
+    "keyboard",
+    "music",
+    "web-audio",
+    "typescript",
+    "vanilla",
+    "no-dependencies"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.1",
+    "@vitest/ui": "^4.1.9",
+    "jsdom": "^29.1.1",
+    "rollup": "^4.28.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.9"
+  }
+}

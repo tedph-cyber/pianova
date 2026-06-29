@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pianova – SoundFont instruments</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #1a1a2e;
+      color: #eee;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    h1 { margin: 0 0 8px; font-weight: 500; font-size: 1.4rem; }
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    select, button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: #16213e;
+      color: #eee;
+      border: 1px solid #334;
+    }
+    select:hover, button:hover { background: #1c2a50; }
+    #piano { padding: 20px; background: #222; border-radius: 8px; }
+    .status { margin-top: 16px; font-size: 0.85rem; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>pianova + SoundFont</h1>
+  <div class="controls">
+    <select id="instrument">
+      <option value="acoustic_grand_piano">Acoustic Grand Piano</option>
+      <option value="bright_acoustic_piano">Bright Acoustic Piano</option>
+      <option value="electric_grand_piano">Electric Grand Piano</option>
+      <option value="honkytonk_piano">Honky-tonk Piano</option>
+      <option value="electric_piano_1">Rhodes (Electric Piano)</option>
+      <option value="electric_piano_2">DX Electric Piano</option>
+      <option value="harpsichord">Harpsichord</option>
+      <option value="clavinet">Clavinet</option>
+      <option value="violin">Violin</option>
+      <option value="cello">Cello</option>
+      <option value="contrabass">Contrabass</option>
+      <option value="pizzicato_strings">Pizzicato Strings</option>
+      <option value="orchestral_harp">Orchestral Harp</option>
+      <option value="timpani">Timpani</option>
+      <option value="string_ensemble_1">String Ensemble</option>
+      <option value="synth_strings_1">Synth Strings</option>
+      <option value="choir_aahs">Choir (Ahhs)</option>
+      <option value="voice_oohs">Synth Voice</option>
+      <option value="trumpet">Trumpet</option>
+      <option value="trombone">Trombone</option>
+      <option value="french_horn">French Horn</option>
+      <option value="alto_sax">Alto Sax</option>
+      <option value="tenor_sax">Tenor Sax</option>
+      <option value="oboe">Oboe</option>
+      <option value="clarinet">Clarinet</option>
+      <option value="flute">Flute</option>
+      <option value="pan_flute">Pan Flute</option>
+      <option value="bassoon">Bassoon</option>
+      <option value="harmonica">Harmonica</option>
+      <option value="acoustic_bass">Acoustic Bass</option>
+      <option value="electric_bass_pick">Electric Bass (Pick)</option>
+      <option value="electric_bass_finger">Electric Bass (Finger)</option>
+      <option value="slap_bass_1">Slap Bass</option>
+      <option value="synth_bass_1">Synth Bass</option>
+    </select>
+    <button id="chord-btn">Play Chord (Cmaj7)</button>
+  </div>
+  <div id="piano"></div>
+  <div class="status" id="status">Loading instrument…</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "soundfont-player": "https://cdn.jsdelivr.net/npm/soundfont-player@2.0.1/es/index.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Piano } from '../dist/pianova.mjs';
+    import Soundfont from 'soundfont-player';
+
+    const ctx = new AudioContext();
+    let player = null;
+
+    async function loadInstrument(name) {
+      document.getElementById('status').textContent = `Loading ${name}…`;
+      try {
+        player = await Soundfont.instrument(ctx, name, { soundfont: 'FluidR3_GM' });
+        document.getElementById('status').textContent = `Loaded: ${name}`;
+      } catch (e) {
+        document.getElementById('status').textContent = `Failed to load: ${name}`;
+        console.error(e);
+      }
+    }
+
+    const piano = new Piano({
+      range: { first: 'C2', last: 'C6' },
+      root: '#piano',
+      keyboardShortcuts: true,
+      onPlayNote: (note) => {
+        if (player) player.play(note.name, ctx.currentTime, { gain: 0.4 });
+      },
+      onStopNote: () => {
+        // soundfont-player handles note release automatically
+        // but we can use player.stop() with the MIDI note if needed
+      },
+    });
+
+    // Instrument selector
+    const sel = document.getElementById('instrument');
+    sel.addEventListener('change', () => loadInstrument(sel.value));
+    loadInstrument(sel.value);
+
+    // Chord demo
+    document.getElementById('chord-btn').addEventListener('click', () => {
+      if (!player) return;
+      const chord = ['C4', 'E4', 'G4', 'B4'];
+      chord.forEach((n, i) => {
+        player.play(n, ctx.currentTime + i * 0.05, { gain: 0.3, duration: 2 });
+      });
+    });
+  </script>
+</body>
+</html>

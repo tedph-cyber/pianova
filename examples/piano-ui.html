@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pianova – Stage Piano</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0b0b12;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    /* ── chassis ── */
+    .stage-piano {
+      background: linear-gradient(145deg, #1a1a2a, #12121e);
+      border-radius: 16px;
+      padding: 28px 32px 32px;
+      box-shadow:
+        0 20px 60px rgba(0,0,0,.7),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 960px;
+      width: 100%;
+    }
+
+    /* ── top bar: logo + wheels + display ── */
+    .top-bar {
+      display: flex;
+      align-items: stretch;
+      gap: 24px;
+    }
+
+    /* ── logo ── */
+    .logo {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-width: 56px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      color: #4a7ab5;
+      text-transform: uppercase;
+      user-select: none;
+    }
+    .logo small {
+      font-size: 0.55rem;
+      color: #445;
+      letter-spacing: 0.15em;
+    }
+
+    /* ── wheels panel ── */
+    .wheels {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+      padding-right: 20px;
+      border-right: 1px solid rgba(255,255,255,.06);
+    }
+    .wheel-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 44px;
+    }
+    .wheel-group label {
+      font-size: 0.55rem;
+      color: #556;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .wheel-track {
+      position: relative;
+      width: 4px;
+      flex: 1;
+      min-height: 80px;
+      background: rgba(255,255,255,.08);
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .wheel-thumb {
+      position: absolute;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #5a6a8a, #2a3a5a);
+      border: 1px solid rgba(255,255,255,.15);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 2px 6px rgba(0,0,0,.5);
+      cursor: grab;
+      transition: box-shadow 0.15s;
+    }
+    .wheel-thumb:active { cursor: grabbing; box-shadow: 0 0 12px #4a7ab566; }
+    .wheel-value {
+      font-size: 0.6rem;
+      color: #667;
+      font-variant-numeric: tabular-nums;
+      min-width: 32px;
+      text-align: center;
+    }
+
+    /* ── digital display ── */
+    .display {
+      flex: 1;
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 12px 18px;
+      border: 1px solid rgba(255,255,255,.06);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,.5);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px 16px;
+      align-content: center;
+      min-height: 100px;
+    }
+    .display-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .display-item .label {
+      font-size: 0.5rem;
+      color: #445;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .display-item .value {
+      font-family: 'Courier New', monospace;
+      font-size: 1.1rem;
+      color: #8bc;
+      text-shadow: 0 0 8px #4a7ab544;
+      line-height: 1.4;
+    }
+    .display-item .value.highlight {
+      font-size: 1.5rem;
+      color: #adf;
+      text-shadow: 0 0 12px #4a7ab588;
+    }
+    .display-item .value.dim {
+      color: #445;
+      text-shadow: none;
+    }
+
+    /* ── controls row ── */
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .controls .group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255,255,255,.04);
+      border-radius: 6px;
+      padding: 4px 8px;
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .controls .group-label {
+      font-size: 0.55rem;
+      color: #556;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 4px;
+    }
+    .ctrl-btn {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      color: #bbc;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+      user-select: none;
+    }
+    .ctrl-btn:hover {
+      background: rgba(74,122,181,.25);
+      border-color: #4a7ab566;
+      color: #cef;
+    }
+    .ctrl-btn:active {
+      background: rgba(74,122,181,.4);
+    }
+    .ctrl-value {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: #8bc;
+      min-width: 24px;
+      text-align: center;
+    }
+    .ctrl-select {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      color: #bbc;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .ctrl-select option { background: #1a1a2a; }
+    .ctrl-btn.sustain { width: auto; padding: 0 12px; font-size: 0.65rem; }
+    .ctrl-btn.sustain.active { background: #4a7ab566; border-color: #4a7ab5; color: #adf; box-shadow: 0 0 10px #4a7ab544; }
+
+    /* ── keyboard ── */
+    #piano {
+      padding: 16px;
+      background: #0a0a12;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.06);
+      overflow: hidden;
+    }
+
+    #piano .pianova-keyboard {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.15) transparent;
+    }
+
+    /* ── responsive ── */
+    @media (max-width: 800px) {
+      .stage-piano { padding: 16px; border-radius: 12px; }
+      .top-bar { flex-direction: column; gap: 12px; }
+      .wheels { border-right: none; padding-right: 0; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+      .wheels .wheel-track { min-height: 50px; }
+      .display { grid-template-columns: 1fr 1fr; min-height: 80px; }
+    }
+
+    @media (max-width: 480px) {
+      .stage-piano { padding: 8px; gap: 12px; border-radius: 8px; }
+      .logo { min-width: 40px; font-size: 0.7rem; }
+      #piano { padding: 8px; border-radius: 6px; }
+      .controls { gap: 6px; }
+      .controls .group { padding: 3px 6px; }
+      .wheels .wheel-track { min-height: 40px; }
+      .wheel-group { width: 36px; }
+      .display { grid-template-columns: 1fr 1fr; gap: 2px 8px; padding: 8px 12px; min-height: 70px; }
+      .display-item .value { font-size: 0.85rem; }
+      .display-item .value.highlight { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="stage-piano">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+
+    <!-- Logo -->
+    <div class="logo">
+      pianova
+      <small>stage</small>
+    </div>
+
+    <!-- Wheels -->
+    <div class="wheels">
+      <div class="wheel-group">
+        <label>Pitch</label>
+        <div class="wheel-track" id="pb-track">
+          <div class="wheel-thumb" id="pb-thumb" style="top: 50%;"></div>
+        </div>
+        <span class="wheel-value" id="pb-label">0.00</span>
+      </div>
+      <div class="wheel-group">
+        <label>Mod</label>
+        <div class="wheel-track" id="mod-track">
+          <div class="wheel-thumb" id="mod-thumb" style="top: 100%;"></div>
+        </div>
+        <span class="wheel-value" id="mod-label">  0%</span>
+      </div>
+    </div>
+
+    <!-- Display -->
+    <div class="display">
+      <div class="display-item">
+        <span class="label">Note</span>
+        <span class="value highlight" id="dsp-note">—</span>
+      </div>
+      <div class="display-item">
+        <span class="label">Waveform</span>
+        <span class="value" id="dsp-wave">sine</span>
+      </div>
+      <div class="display-item">
+        <span class="label">Transpose</span>
+        <span class="value" id="dsp-trans">±0</span>
+      </div>
+      <div class="display-item">
+        <span class="label">Octave</span>
+        <span class="value" id="dsp-oct">±0</span>
+      </div>
+      <div class="display-item">
+        <span class="label">Detune</span>
+        <span class="value" id="dsp-det">0¢</span>
+      </div>
+      <div class="display-item">
+        <span class="label">MIDI</span>
+        <span class="value dim" id="dsp-midi">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="group">
+      <span class="group-label">Transpose</span>
+      <button class="ctrl-btn" id="trans-down">−</button>
+      <span class="ctrl-value" id="trans-val">0</span>
+      <button class="ctrl-btn" id="trans-up">+</button>
+    </div>
+    <div class="group">
+      <span class="group-label">Octave</span>
+      <button class="ctrl-btn" id="oct-down">−</button>
+      <span class="ctrl-value" id="oct-val">0</span>
+      <button class="ctrl-btn" id="oct-up">+</button>
+    </div>
+    <div class="group">
+      <span class="group-label">Wave</span>
+      <select class="ctrl-select" id="wave-sel">
+        <option value="sine">Sine</option>
+        <option value="triangle">Triangle</option>
+        <option value="square">Square</option>
+        <option value="sawtooth">Sawtooth</option>
+      </select>
+    </div>
+    <div class="group">
+      <span class="group-label">Detune</span>
+      <button class="ctrl-btn" id="det-down">−</button>
+      <span class="ctrl-value" id="det-val">0</span>
+      <button class="ctrl-btn" id="det-up">+</button>
+    </div>
+    <div class="group">
+      <button class="ctrl-btn sustain" id="sustain-btn">Sustain</button>
+    </div>
+  </div>
+
+  <!-- Keyboard -->
+  <div id="piano"></div>
+</div>
+
+<script type="module">
+  import { Piano } from '../dist/pianova.mjs';
+
+  // ——————————— piano ———————————
+  const piano = new Piano({ root: '#piano' });
+
+  // ——————————— wheels ———————————
+  // Pitch bend (spring-loaded: auto-returns to center)
+  let pbVal = 0;
+  const pbTrack = document.getElementById('pb-track');
+  const pbThumb = document.getElementById('pb-thumb');
+  const pbLabel = document.getElementById('pb-label');
+
+  function pbSet(y) {
+    const rect = pbTrack.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, 1 - (y - rect.top) / rect.height));
+    pbVal = (frac - 0.5) * 4; // -2 to +2 semitones
+    pbThumb.style.top = `${frac * 100}%`;
+    pbLabel.textContent = pbVal.toFixed(2);
+    piano.pitchBend(pbVal);
+  }
+
+  pbTrack.addEventListener('mousedown', (e) => {
+    pbSet(e.clientY);
+    const onMove = (ev) => pbSet(ev.clientY);
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      // Spring return to center
+      pbVal = 0;
+      pbThumb.style.top = '50%';
+      pbLabel.textContent = '0.00';
+      piano.pitchBend(0);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+  });
+
+  // Modulation (stays put)
+  let modVal = 0;
+  const modTrack = document.getElementById('mod-track');
+  const modThumb = document.getElementById('mod-thumb');
+  const modLabel = document.getElementById('mod-label');
+
+  function modSet(y) {
+    const rect = modTrack.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, 1 - (y - rect.top) / rect.height));
+    modVal = frac;
+    modThumb.style.top = `${frac * 100}%`;
+    modLabel.textContent = `${Math.round(frac * 100)}%`;
+    piano.modulation(modVal);
+  }
+
+  modTrack.addEventListener('mousedown', (e) => {
+    modSet(e.clientY);
+    const onMove = (ev) => modSet(ev.clientY);
+    const onUp = () => window.removeEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+  });
+
+  // Also drag the thumbs directly
+  pbThumb.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    const onMove = (ev) => pbSet(ev.clientY);
+    const onUp = () => window.removeEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+  });
+  modThumb.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    const onMove = (ev) => modSet(ev.clientY);
+    const onUp = () => window.removeEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp, { once: true });
+  });
+
+  // ——————————— display updates ———————————
+  const dspNote = document.getElementById('dsp-note');
+  const dspWave = document.getElementById('dsp-wave');
+  const dspTrans = document.getElementById('dsp-trans');
+  const dspOct = document.getElementById('dsp-oct');
+  const dspDet = document.getElementById('dsp-det');
+  const dspMidi = document.getElementById('dsp-midi');
+
+  piano.on('noteOn', (n) => {
+    dspNote.textContent = n.name;
+    dspMidi.textContent = n.midi;
+    dspMidi.className = 'value';
+  });
+
+  function updateDsp() {
+    dspWave.textContent = piano.options.waveform ?? 'sine';
+    const t = piano.transpose;
+    dspTrans.textContent = t === 0 ? '±0' : (t > 0 ? `+${t}` : `${t}`);
+    const o = piano.octaveShift;
+    dspOct.textContent = o === 0 ? '±0' : (o > 0 ? `+${o}` : `${o}`);
+    dspDet.textContent = `${piano.detune}¢`;
+  }
+  updateDsp();
+
+  // ——————————— controls ———————————
+  document.getElementById('trans-down').addEventListener('click', () => {
+    piano.transpose -= 1;
+    updateDsp();
+    document.getElementById('trans-val').textContent = piano.transpose;
+  });
+  document.getElementById('trans-up').addEventListener('click', () => {
+    piano.transpose += 1;
+    updateDsp();
+    document.getElementById('trans-val').textContent = piano.transpose;
+  });
+  document.getElementById('oct-down').addEventListener('click', () => {
+    piano.octaveShift -= 1;
+    updateDsp();
+    document.getElementById('oct-val').textContent = piano.octaveShift;
+  });
+  document.getElementById('oct-up').addEventListener('click', () => {
+    piano.octaveShift += 1;
+    updateDsp();
+    document.getElementById('oct-val').textContent = piano.octaveShift;
+  });
+
+  document.getElementById('wave-sel').addEventListener('change', (e) => {
+    piano.setWaveform(e.target.value);
+    dspWave.textContent = e.target.value;
+  });
+
+  document.getElementById('det-down').addEventListener('click', () => {
+    piano.detune -= 5;
+    updateDsp();
+    document.getElementById('det-val').textContent = piano.detune;
+  });
+  document.getElementById('det-up').addEventListener('click', () => {
+    piano.detune += 5;
+    updateDsp();
+    document.getElementById('det-val').textContent = piano.detune;
+  });
+
+  // ——————————— sustain pedal ———————————
+  const sustainBtn = document.getElementById('sustain-btn');
+  sustainBtn.addEventListener('click', () => {
+    piano.sustain = !piano.sustain;
+    sustainBtn.classList.toggle('active', piano.sustain);
+  });
+
+  // ——————————— responsive keyboard scaling ———————————
+  const pianoContainer = document.getElementById('piano');
+  function fitKeyboard() {
+    const kb = pianoContainer.querySelector('.pianova-keyboard');
+    if (!kb) return;
+    const avail = pianoContainer.clientWidth - 32;
+    const natural = kb.scrollWidth;
+    const s = natural > avail ? avail / natural : 1;
+    kb.style.transform = s < 1 ? `scale(${s})` : '';
+    kb.style.transformOrigin = 'left top';
+    const h = 200 * s;
+    kb.style.marginBottom = s < 1 ? `${200 - h}px` : '';
+  }
+
+  const ro = new ResizeObserver(fitKeyboard);
+  ro.observe(pianoContainer);
+  requestAnimationFrame(() => requestAnimationFrame(fitKeyboard));
+
+  // Init control displays
+  document.getElementById('trans-val').textContent = piano.transpose;
+  document.getElementById('oct-val').textContent = piano.octaveShift;
+  document.getElementById('det-val').textContent = piano.detune;
+</script>
+</body>
+</html>

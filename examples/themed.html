@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pianova – themed</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #1a1a2e;
+    }
+    #piano {
+      padding: 24px;
+      background: #16213e;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    pianova-keyboard {
+      --pianova-white-bg: #e8e8f0;
+      --pianova-white-hover: #d0d8e8;
+      --pianova-white-active: #7a9bcb;
+      --pianova-black-bg: #0f3460;
+      --pianova-black-hover: #1a4a7a;
+      --pianova-black-active: #e94560;
+      --pianova-key-border: #0f3460;
+      --pianova-label-color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div id="piano"></div>
+  <script type="module">
+    import { Piano } from '../dist/pianova.mjs';
+
+    // No range specified — defaults to C2–C6
+    new Piano({ root: '#piano' });
+  </script>
+</body>
+</html>

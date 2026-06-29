@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pianova – pitch bend, modulation, detune</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #1a1a2e;
+      color: #eee;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    h1 { margin: 0 0 4px; font-weight: 500; font-size: 1.2rem; }
+    .info { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+    #piano { padding: 20px; background: #222; border-radius: 8px; margin-bottom: 24px; }
+    .fx-panel {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      background: #16213e;
+      padding: 20px 28px;
+      border-radius: 8px;
+      border: 1px solid #334;
+    }
+    .fx-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-width: 140px;
+    }
+    .fx-group label {
+      font-size: 0.8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .fx-group input[type="range"] {
+      width: 100%;
+      accent-color: #4a7ab5;
+    }
+    .fx-group .value {
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .fx-group select {
+      padding: 6px 12px;
+      border: 1px solid #334;
+      border-radius: 4px;
+      background: #0f3460;
+      color: #eee;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>pianova – FX panel</h1>
+  <p class="info">C2–C6 · sine | triangle | square | sawtooth</p>
+  <div id="piano"></div>
+
+  <div class="fx-panel">
+    <div class="fx-group">
+      <label>Waveform</label>
+      <select id="waveform">
+        <option value="sine">Sine</option>
+        <option value="triangle">Triangle</option>
+        <option value="square">Square</option>
+        <option value="sawtooth">Sawtooth</option>
+      </select>
+    </div>
+    <div class="fx-group">
+      <label>Pitch Bend</label>
+      <input type="range" id="pitchbend" min="-2" max="2" step="0.01" value="0" />
+      <span class="value" id="pb-value">0.00 st</span>
+    </div>
+    <div class="fx-group">
+      <label>Modulation (vibrato)</label>
+      <input type="range" id="modulation" min="0" max="1" step="0.01" value="0" />
+      <span class="value" id="mod-value">0%</span>
+    </div>
+    <div class="fx-group">
+      <label>Detune</label>
+      <input type="range" id="detune" min="-100" max="100" step="1" value="0" />
+      <span class="value" id="det-value">0 ct</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Piano } from '../dist/pianova.mjs';
+
+    const piano = new Piano({ root: '#piano' });
+
+    // Waveform
+    document.getElementById('waveform').addEventListener('change', (e) => {
+      piano.setWaveform(e.target.value);
+    });
+
+    // Pitch Bend
+    const pbSlider = document.getElementById('pitchbend');
+    pbSlider.addEventListener('input', () => {
+      const v = parseFloat(pbSlider.value);
+      piano.pitchBend(v);
+      document.getElementById('pb-value').textContent = v.toFixed(2) + ' st';
+    });
+
+    // Modulation
+    const modSlider = document.getElementById('modulation');
+    modSlider.addEventListener('input', () => {
+      const v = parseFloat(modSlider.value);
+      piano.modulation(v);
+      document.getElementById('mod-value').textContent = Math.round(v * 100) + '%';
+    });
+
+    // Detune
+    const detSlider = document.getElementById('detune');
+    detSlider.addEventListener('input', () => {
+      const v = parseFloat(detSlider.value);
+      piano.detune = v;
+      document.getElementById('det-value').textContent = v + ' ct';
+    });
+  </script>
+</body>
+</html>
