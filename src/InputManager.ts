@@ -42,6 +42,7 @@ export class InputManager {
 
   private midiElements = new Map<number, HTMLElement>();
   private activeMidi = new Set<number>();
+  private mouseMidi = new Set<number>();
   private touchMap = new Map<number, number>();
 
   private boundMouseDown: (e: MouseEvent) => void;
@@ -50,6 +51,7 @@ export class InputManager {
   private boundTouchEnd: (e: TouchEvent) => void;
   private boundKeyDown: (e: KeyboardEvent) => void;
   private boundKeyUp: (e: KeyboardEvent) => void;
+  private boundKeyActivate: (e: KeyboardEvent) => void;
 
   constructor(config: InputConfig) {
     this.keys = config.keys;
@@ -82,6 +84,7 @@ export class InputManager {
     this.boundTouchEnd = this.onTouchEnd.bind(this);
     this.boundKeyDown = this.onKeyDown.bind(this);
     this.boundKeyUp = this.onKeyUp.bind(this);
+    this.boundKeyActivate = this.onKeyActivate.bind(this);
 
     this.attachEvents();
   }
@@ -89,6 +92,8 @@ export class InputManager {
   private attachEvents(): void {
     for (const k of this.keys) {
       k.element.addEventListener('mousedown', this.boundMouseDown);
+      k.element.addEventListener('keydown', this.boundKeyActivate);
+      k.element.addEventListener('keyup', this.boundKeyActivate);
     }
     window.addEventListener('mouseup', this.boundMouseUp);
     // Use document for touch to capture all touches
@@ -104,6 +109,8 @@ export class InputManager {
   private detachEvents(): void {
     for (const k of this.keys) {
       k.element.removeEventListener('mousedown', this.boundMouseDown);
+      k.element.removeEventListener('keydown', this.boundKeyActivate);
+      k.element.removeEventListener('keyup', this.boundKeyActivate);
     }
     window.removeEventListener('mouseup', this.boundMouseUp);
     document.removeEventListener('touchstart', this.boundTouchStart);
@@ -115,21 +122,30 @@ export class InputManager {
     }
   }
 
+  /** Enter or Space on a focused key plays it, like a button. */
+  private onKeyActivate(e: KeyboardEvent): void {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const midi = parseInt((e.currentTarget as HTMLElement).dataset.midi!, 10);
+    if (e.type === 'keyup') this.noteOff(midi);
+    else if (!e.repeat) this.noteOn(midi);
+  }
+
   private onMouseDown(e: MouseEvent): void {
     e.preventDefault();
     const el = (e.currentTarget as HTMLElement);
     const midi = parseInt(el.dataset.midi!, 10);
+    this.mouseMidi.add(midi);
     this.noteOn(midi);
   }
 
-  private onMouseUp(e: MouseEvent): void {
-    // Check if mouse is over a key
-    const el = (e.target as HTMLElement).closest('[data-midi]') as HTMLElement | null;
-    if (el) return;
-    // Release all mouse-activated notes
-    for (const m of this.activeMidi) {
+  private onMouseUp(): void {
+    // Release only notes the mouse started, wherever the button is released.
+    for (const m of [...this.mouseMidi]) {
       this.noteOff(m);
     }
+    this.mouseMidi.clear();
   }
 
   private onTouchStart(e: TouchEvent): void {
