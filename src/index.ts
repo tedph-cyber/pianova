@@ -4,15 +4,20 @@ import { SynthEngine } from './SynthEngine';
 import { InputManager } from './InputManager';
 import { parseNote } from './NoteMap';
 import { removeStyles } from './css';
-import type { PianoOptions, PianoEvents, NoteInfo, WaveformType } from './types';
+import { applyKeyState } from './KeyState';
+import type { PianoOptions, PianoEvents, NoteInfo, WaveformType, KeyElement, KeyState } from './types';
 
-export type { PianoOptions, PianoEvents, NoteInfo, WaveformType, NoteName, NoteRange } from './types';
+export type {
+  PianoOptions, PianoEvents, NoteInfo, WaveformType, NoteName, NoteRange,
+  KeyState, KeyLabels, KeyboardLayout,
+} from './types';
 export { parseNote, midiToNote, midiToFrequency, midiToNoteName } from './NoteMap';
 
 export class Piano extends EventEmitter<PianoEvents> {
   private synth: SynthEngine | null = null;
   private input: InputManager | null = null;
   private container: HTMLElement | null = null;
+  private keys = new Map<number, KeyElement>();
   private _destroyed = false;
 
   private _transpose = 0;
@@ -43,8 +48,14 @@ export class Piano extends EventEmitter<PianoEvents> {
       if (options.detune) this.synth.detune = options.detune;
     }
 
-    const result = createKeyboard(range.first, range.last, root);
+    const result = createKeyboard(range.first, range.last, root, {
+      keyLabels: options.keyLabels,
+      layout: options.layout,
+      keyHeight: options.keyHeight,
+      minWhiteKeyWidth: options.minWhiteKeyWidth,
+    });
     this.container = result.container;
+    this.keys = new Map(result.keys.map((k) => [k.midi, k]));
 
     this.input = new InputManager({
       keys: result.keys,
@@ -95,6 +106,24 @@ export class Piano extends EventEmitter<PianoEvents> {
     this.input?.releaseKey(parseNote(note).midi);
   }
 
+  /**
+   * Sets a key's visual state (colour, mark, label, badge) without playing it.
+   * Replaces the key's previous state; `null` clears it. Keys are addressed by
+   * their position on the keyboard, ignoring transpose and octave shift.
+   * Keys outside the range are ignored.
+   */
+  setKeyState(note: string | number, state: KeyState | null): void {
+    if (this._destroyed) return;
+    const key = this.keys.get(parseNote(note).midi);
+    if (key) applyKeyState(key, state);
+  }
+
+  /** Clears the visual state of every key. */
+  clearKeyStates(): void {
+    if (this._destroyed) return;
+    this.keys.forEach((key) => applyKeyState(key, null));
+  }
+
   setWaveform(type: WaveformType): void {
     if (this.synth) this.synth.waveform = type;
   }
@@ -134,5 +163,6 @@ export class Piano extends EventEmitter<PianoEvents> {
     this.synth = null;
     this.input = null;
     this.container = null;
+    this.keys.clear();
   }
 }

@@ -42,6 +42,11 @@ const CSS = `
   background: var(--pianova-white-hover, #f2f2f2);
 }
 
+/* Colour set via setKeyState(); a pressed key still shows its active colour. */
+.pianova-white-key.pianova-colored {
+  background: var(--pianova-key-color);
+}
+
 .pianova-white-key.pianova-active {
   background: var(--pianova-white-active, #b0d0f0);
 }
@@ -55,14 +60,31 @@ const CSS = `
   flex-shrink: 0;
   transition: background 0.06s;
   touch-action: manipulation;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 6px;
 }
 
 .pianova-black-key:hover {
   background: var(--pianova-black-hover, #333);
 }
 
+.pianova-black-key.pianova-colored {
+  background: var(--pianova-key-color);
+}
+
 .pianova-black-key.pianova-active {
   background: var(--pianova-black-active, #4a7ab5);
+}
+
+.pianova-white-key.pianova-marked {
+  box-shadow: inset 0 0 0 3px var(--pianova-mark-color, #1a1a1a);
+}
+
+.pianova-black-key.pianova-marked {
+  box-shadow: 0 0 0 3px var(--pianova-mark-color, #1a1a1a), inset 0 0 0 2px var(--pianova-white-bg, #ffffff);
 }
 
 .pianova-key-label {
@@ -70,6 +92,22 @@ const CSS = `
   color: var(--pianova-label-color, #999);
   pointer-events: none;
   font-family: var(--pianova-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+.pianova-key-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1.5px solid var(--pianova-badge-border, #1a1a1a);
+  background: var(--pianova-badge-bg, #ffffff);
+  color: var(--pianova-badge-color, #1a1a1a);
+  font: 700 12px var(--pianova-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  pointer-events: none;
 }
 `;
 

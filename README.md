@@ -93,6 +93,10 @@ const piano = new Piano(options: PianoOptions);
 | `detune` | `number` | `0` | Initial fine-tune offset in cents |
 | `transpose` | `number` | `0` | Initial transpose offset in semitones |
 | `octaveShift` | `number` | `0` | Initial octave shift (each = 12 semitones) |
+| `keyLabels` | `boolean \| (note: NoteInfo) => string` | `true` | `true`: note names on white keys; `false`: none; function: label for any key (`''` for none) |
+| `layout` | `'fixed' \| 'fluid'` | `'fixed'` | `'fluid'` makes the keyboard fill its container's width |
+| `keyHeight` | `number` | `200` | White key height in px; black keys scale with it |
+| `minWhiteKeyWidth` | `number` | — | Fluid layout: narrowest white key (px) before the keyboard overflows its container |
 
 When `onPlayNote`/`onStopNote` are **omitted**, the built-in Web Audio synth is used automatically.
 
@@ -105,7 +109,22 @@ When `onPlayNote`/`onStopNote` are **omitted**, the built-in Web Audio synth is 
 | `setWaveform` | `(type: WaveformType) => void` | Change oscillator shape (synth only) |
 | `pitchBend` | `(semitones: number) => void` | Bend all active notes (±2 range) |
 | `modulation` | `(depth: number) => void` | Set LFO vibrato depth (0–1) |
+| `setKeyState` | `(note: string \| number, state: KeyState \| null) => void` | Set a key's look without playing it; replaces its previous state, `null` clears |
+| `clearKeyStates` | `() => void` | Clear every key's state |
 | `destroy` | `() => void` | Remove DOM, stop audio, disconnect events (idempotent) |
+
+**`KeyState` shape** (all optional):
+
+```ts
+{
+  color?: string;          // any CSS background; lights the key silently (e.g. show an answer)
+  mark?: boolean;          // outline the key (e.g. a target note)
+  label?: string;          // replace the key's label while set
+  badge?: string | number; // small badge, e.g. a finger number
+}
+```
+
+Keys are addressed by their position on the keyboard, ignoring `transpose` and `octaveShift`. A pressed key still shows its active colour over a state colour. To colour pressed keys dynamically (e.g. by the chord being played), set `--pianova-white-active` / `--pianova-black-active` on the root element.
 
 #### Properties
 
@@ -188,6 +207,8 @@ All visual styles are controlled through CSS custom properties on the `.pianova-
 | `--pianova-black-border` | `#333` | Black key border |
 | `--pianova-label-color` | `#999` | Note label text |
 | `--pianova-font` | `system-ui` | Label font family |
+| `--pianova-mark-color` | `#1a1a1a` | Outline of marked keys |
+| `--pianova-badge-bg` / `-border` / `-color` | `#fff` / `#1a1a1a` / `#1a1a1a` | Key badge fill, border and text |
 
 ---
 
@@ -366,7 +387,7 @@ pianova/
 | CJS | `dist/pianova.cjs` | `const { Piano } = require('pianova')` |
 | UMD | `dist/pianova.min.js` | `<script src="…"> Pianova.Piano` |
 
-### Test Suite (69 tests)
+### Test Suite (88 tests)
 
 ```
  ✓ tests/NoteMap.test.ts       (26 tests)
