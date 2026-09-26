@@ -1,6 +1,6 @@
 {
   "name": "pianova",
-  "version": "0.1.2",
+  "version": "0.2.0-beta.0",
   "description": "A vanilla TypeScript piano keyboard component with built-in Web Audio synthesis",
   "type": "module",
   "main": "dist/pianova.cjs",
