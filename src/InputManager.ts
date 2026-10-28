@@ -23,11 +23,16 @@ const DEFAULT_KEY_MAP: Record<string, number> = {
   a: 84,
 };
 
-export type NoteOnCallback = (midi: number) => void;
+/** `velocity` (0–1) is only present for MIDI input; touch, mouse and QWERTY leave it out. */
+export type NoteOnCallback = (midi: number, velocity?: number) => void;
 export type NoteOffCallback = (midi: number) => void;
 
 export interface InputConfig {
   keys: KeyElement[];
+  /** The keyboard element. Pointer events are attached here and nowhere else. Omit for programmatic/QWERTY input only. */
+  container?: HTMLElement;
+  /** Sliding a pointer across keys releases the old key and presses the new one. Default `true`. */
+  glide?: boolean;
   keyboardMap?: boolean | Record<string, number>;
   onNoteOn: NoteOnCallback;
   onNoteOff: NoteOffCallback;
@@ -40,15 +45,20 @@ export class InputManager {
   private keyboardMap: Record<string, number> | null = null;
   private midiToKey = new Map<number, string[]>();
 
+  private container: HTMLElement | null;
+  private glide: boolean;
   private midiElements = new Map<number, HTMLElement>();
   private activeMidi = new Set<number>();
-  private mouseMidi = new Set<number>();
-  private touchMap = new Map<number, number>();
+  /** pointerId → the key it is currently on. */
+  private pointers = new Map<number, number>();
+  /** midi → how many pointers hold it, so two fingers on one key release it only when both lift. */
+  private pointerHolds = new Map<number, number>();
 
-  private boundMouseDown: (e: MouseEvent) => void;
-  private boundMouseUp: (e: MouseEvent) => void;
-  private boundTouchStart: (e: TouchEvent) => void;
-  private boundTouchEnd: (e: TouchEvent) => void;
+  private boundPointerDown: (e: PointerEvent) => void;
+  private boundPointerMove: (e: PointerEvent) => void;
+  private boundPointerEnd: (e: PointerEvent) => void;
+  private boundContextMenu: (e: Event) => void;
+  private boundVisibility: () => void;
   private boundKeyDown: (e: KeyboardEvent) => void;
   private boundKeyUp: (e: KeyboardEvent) => void;
   private boundKeyActivate: (e: KeyboardEvent) => void;
@@ -57,10 +67,10 @@ export class InputManager {
     this.keys = config.keys;
     this.onNoteOn = config.onNoteOn;
     this.onNoteOff = config.onNoteOff;
+    this.container = config.container ?? null;
+    this.glide = config.glide ?? true;
 
-    for (const k of config.keys) {
-      this.midiElements.set(k.midi, k.element);
-    }
+    this.setKeys(config.keys);
 
     // Keyboard mapping
     if (config.keyboardMap) {
@@ -78,10 +88,11 @@ export class InputManager {
       }
     }
 
-    this.boundMouseDown = this.onMouseDown.bind(this);
-    this.boundMouseUp = this.onMouseUp.bind(this);
-    this.boundTouchStart = this.onTouchStart.bind(this);
-    this.boundTouchEnd = this.onTouchEnd.bind(this);
+    this.boundPointerDown = this.onPointerDown.bind(this);
+    this.boundPointerMove = this.onPointerMove.bind(this);
+    this.boundPointerEnd = this.onPointerEnd.bind(this);
+    this.boundContextMenu = (e) => e.preventDefault(); // Android long-press menu
+    this.boundVisibility = this.onVisibilityChange.bind(this);
     this.boundKeyDown = this.onKeyDown.bind(this);
     this.boundKeyUp = this.onKeyUp.bind(this);
     this.boundKeyActivate = this.onKeyActivate.bind(this);
@@ -90,15 +101,18 @@ export class InputManager {
   }
 
   private attachEvents(): void {
-    for (const k of this.keys) {
-      k.element.addEventListener('mousedown', this.boundMouseDown);
-      k.element.addEventListener('keydown', this.boundKeyActivate);
-      k.element.addEventListener('keyup', this.boundKeyActivate);
+    const c = this.container;
+    if (c) {
+      c.addEventListener('pointerdown', this.boundPointerDown);
+      c.addEventListener('pointermove', this.boundPointerMove);
+      c.addEventListener('pointerup', this.boundPointerEnd);
+      c.addEventListener('pointercancel', this.boundPointerEnd);
+      c.addEventListener('lostpointercapture', this.boundPointerEnd);
+      c.addEventListener('contextmenu', this.boundContextMenu);
+      c.addEventListener('keydown', this.boundKeyActivate);
+      c.addEventListener('keyup', this.boundKeyActivate);
     }
-    window.addEventListener('mouseup', this.boundMouseUp);
-    // Use document for touch to capture all touches
-    document.addEventListener('touchstart', this.boundTouchStart, { passive: false });
-    document.addEventListener('touchend', this.boundTouchEnd, { passive: false });
+    document.addEventListener('visibilitychange', this.boundVisibility);
 
     if (this.keyboardMap) {
       window.addEventListener('keydown', this.boundKeyDown);
@@ -107,14 +121,18 @@ export class InputManager {
   }
 
   private detachEvents(): void {
-    for (const k of this.keys) {
-      k.element.removeEventListener('mousedown', this.boundMouseDown);
-      k.element.removeEventListener('keydown', this.boundKeyActivate);
-      k.element.removeEventListener('keyup', this.boundKeyActivate);
+    const c = this.container;
+    if (c) {
+      c.removeEventListener('pointerdown', this.boundPointerDown);
+      c.removeEventListener('pointermove', this.boundPointerMove);
+      c.removeEventListener('pointerup', this.boundPointerEnd);
+      c.removeEventListener('pointercancel', this.boundPointerEnd);
+      c.removeEventListener('lostpointercapture', this.boundPointerEnd);
+      c.removeEventListener('contextmenu', this.boundContextMenu);
+      c.removeEventListener('keydown', this.boundKeyActivate);
+      c.removeEventListener('keyup', this.boundKeyActivate);
     }
-    window.removeEventListener('mouseup', this.boundMouseUp);
-    document.removeEventListener('touchstart', this.boundTouchStart);
-    document.removeEventListener('touchend', this.boundTouchEnd);
+    document.removeEventListener('visibilitychange', this.boundVisibility);
 
     if (this.keyboardMap) {
       window.removeEventListener('keydown', this.boundKeyDown);
@@ -122,54 +140,76 @@ export class InputManager {
     }
   }
 
+  /** The key under a DOM node, if it is one of ours. */
+  private midiOf(node: EventTarget | Element | null | undefined): number | null {
+    const hit = (node as Element | null | undefined)?.closest?.('[data-midi]') as HTMLElement | null | undefined;
+    if (!hit || !this.container?.contains(hit)) return null;
+    const midi = parseInt(hit.dataset.midi!, 10);
+    return Number.isNaN(midi) ? null : midi;
+  }
+
   /** Enter or Space on a focused key plays it, like a button. */
   private onKeyActivate(e: KeyboardEvent): void {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    const midi = this.midiOf(e.target);
+    if (midi === null) return;
     e.preventDefault();
     e.stopPropagation();
-    const midi = parseInt((e.currentTarget as HTMLElement).dataset.midi!, 10);
     if (e.type === 'keyup') this.noteOff(midi);
     else if (!e.repeat) this.noteOn(midi);
   }
 
-  private onMouseDown(e: MouseEvent): void {
+  private onPointerDown(e: PointerEvent): void {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const midi = this.midiOf(e.target);
+    if (midi === null) return;
     e.preventDefault();
-    const el = (e.currentTarget as HTMLElement);
-    const midi = parseInt(el.dataset.midi!, 10);
-    this.mouseMidi.add(midi);
-    this.noteOn(midi);
+    try {
+      this.container!.setPointerCapture?.(e.pointerId); // keep move/up for this finger
+    } catch {
+      // synthetic or already-gone pointer: ignore
+    }
+    this.pointers.set(e.pointerId, midi);
+    this.holdPointer(midi);
   }
 
-  private onMouseUp(): void {
-    // Release only notes the mouse started, wherever the button is released.
-    for (const m of [...this.mouseMidi]) {
-      this.noteOff(m);
-    }
-    this.mouseMidi.clear();
+  private onPointerMove(e: PointerEvent): void {
+    if (!this.glide) return;
+    const prev = this.pointers.get(e.pointerId);
+    if (prev === undefined) return;
+    // With capture on, e.target is the container, so hit-test by position.
+    const midi = this.midiOf(document.elementFromPoint?.(e.clientX, e.clientY));
+    if (midi === null || midi === prev) return; // off the keys: keep the last note until lift
+    this.pointers.set(e.pointerId, midi);
+    this.releasePointer(prev);
+    this.holdPointer(midi);
   }
 
-  private onTouchStart(e: TouchEvent): void {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      const el = document.elementFromPoint(t.clientX, t.clientY)?.closest('[data-midi]') as HTMLElement | null;
-      if (el) {
-        e.preventDefault();
-        const midi = parseInt(el.dataset.midi!, 10);
-        this.touchMap.set(t.identifier, midi);
-        this.noteOn(midi);
-      }
-    }
+  private onPointerEnd(e: PointerEvent): void {
+    const midi = this.pointers.get(e.pointerId);
+    if (midi === undefined) return;
+    this.pointers.delete(e.pointerId);
+    this.releasePointer(midi);
   }
 
-  private onTouchEnd(e: TouchEvent): void {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      const midi = this.touchMap.get(t.identifier);
-      if (midi !== undefined) {
-        this.touchMap.delete(t.identifier);
-        this.noteOff(midi);
-      }
+  private onVisibilityChange(): void {
+    if (document.visibilityState === 'hidden') this.releaseAll();
+  }
+
+  private holdPointer(midi: number): void {
+    const n = this.pointerHolds.get(midi) ?? 0;
+    this.pointerHolds.set(midi, n + 1);
+    if (n === 0) this.noteOn(midi);
+  }
+
+  private releasePointer(midi: number): void {
+    const n = (this.pointerHolds.get(midi) ?? 0) - 1;
+    if (n > 0) {
+      this.pointerHolds.set(midi, n);
+      return;
     }
+    this.pointerHolds.delete(midi);
+    this.noteOff(midi);
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -192,11 +232,12 @@ export class InputManager {
     }
   }
 
-  private noteOn(midi: number): void {
+  private noteOn(midi: number, velocity?: number): void {
     if (this.activeMidi.has(midi)) return;
     this.activeMidi.add(midi);
     this.midiElements.get(midi)?.classList.add(ACTIVE_CLASS);
-    this.onNoteOn(midi);
+    if (velocity === undefined) this.onNoteOn(midi);
+    else this.onNoteOn(midi, velocity);
   }
 
   private noteOff(midi: number): void {
@@ -206,8 +247,8 @@ export class InputManager {
     this.onNoteOff(midi);
   }
 
-  pressKey(midi: number): void {
-    this.noteOn(midi);
+  pressKey(midi: number, velocity?: number): void {
+    this.noteOn(midi, velocity);
   }
 
   releaseKey(midi: number): void {
@@ -215,15 +256,31 @@ export class InputManager {
   }
 
   releaseAll(): void {
+    this.pointers.clear();
+    this.pointerHolds.clear();
     for (const m of [...this.activeMidi]) {
       this.noteOff(m);
     }
+  }
+
+  setGlide(on: boolean): void {
+    this.glide = on;
+  }
+
+  /** Point at a new set of key elements (the keyboard was rebuilt); pressed keys stay pressed. */
+  setKeys(keys: KeyElement[]): void {
+    for (const m of this.activeMidi) this.midiElements.get(m)?.classList.remove(ACTIVE_CLASS);
+    this.keys = keys;
+    this.midiElements.clear();
+    for (const k of keys) this.midiElements.set(k.midi, k.element);
+    for (const m of this.activeMidi) this.midiElements.get(m)?.classList.add(ACTIVE_CLASS);
   }
 
   destroy(): void {
     this.releaseAll();
     this.detachEvents();
     this.midiElements.clear();
-    this.touchMap.clear();
+    this.pointers.clear();
+    this.pointerHolds.clear();
   }
 }

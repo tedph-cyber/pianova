@@ -1,7 +1,7 @@
 {
   "name": "pianova",
-  "version": "0.2.0-beta.0",
-  "description": "A vanilla TypeScript piano keyboard component with built-in Web Audio synthesis",
+  "version": "0.2.0",
+  "description": "A vanilla TypeScript piano keyboard component with built-in Web Audio synthesis, pointer input, Web MIDI and a music-theory module",
   "type": "module",
   "main": "dist/pianova.cjs",
   "module": "dist/pianova.mjs",
@@ -11,6 +11,11 @@
       "import": "./dist/pianova.mjs",
       "require": "./dist/pianova.cjs",
       "types": "./dist/types/index.d.ts"
+    },
+    "./theory": {
+      "types": "./dist/types/theory/index.d.ts",
+      "import": "./dist/theory.mjs",
+      "require": "./dist/theory.cjs"
     }
   },
   "files": [
@@ -24,8 +29,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "start": "npx serve examples -l 3000 --no-clipboard",
-    "serve": "npx serve examples",
+    "start": "npm run build && npx serve . -l 3000 --no-clipboard",
+    "serve": "npx serve .",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
@@ -35,7 +40,13 @@
     "web-audio",
     "typescript",
     "vanilla",
-    "no-dependencies"
+    "no-dependencies",
+    "midi",
+    "web-midi",
+    "music-theory",
+    "solfege",
+    "chords",
+    "scales"
   ],
   "license": "MIT",
   "devDependencies": {
@@ -52,5 +63,12 @@
     "@rollup/rollup-linux-x64-gnu": "^4.28.0",
     "@rollup/rollup-linux-x64-musl": "^4.28.0",
     "@rollup/rollup-darwin-x64": "^4.28.0"
+  },
+  "typesVersions": {
+    "*": {
+      "theory": [
+        "dist/types/theory/index.d.ts"
+      ]
+    }
   }
 }

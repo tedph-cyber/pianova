@@ -1,23 +1,26 @@
 import { EventEmitter } from './EventEmitter';
-import { createKeyboard } from './Keyboard';
+import { createKeyboard, type KeyboardResult } from './Keyboard';
 import { SynthEngine } from './SynthEngine';
 import { InputManager } from './InputManager';
 import { parseNote } from './NoteMap';
 import { removeStyles } from './css';
-import { applyKeyState } from './KeyState';
-import type { PianoOptions, PianoEvents, NoteInfo, WaveformType, KeyElement, KeyState } from './types';
+import { connectMidi, MidiError, type MidiConnection } from './midi';
+import type { PianoOptions, PianoEvents, NoteInfo, WaveformType, VisibleRange, KeyState } from './types';
 
 export type {
-  PianoOptions, PianoEvents, NoteInfo, WaveformType, NoteName, NoteRange,
-  KeyState, KeyLabels, KeyboardLayout,
+  PianoOptions, PianoEvents, NoteInfo, WaveformType, NoteName, NoteRange, FitOptions, VisibleRange, KeyState,
 } from './types';
 export { parseNote, midiToNote, midiToFrequency, midiToNoteName } from './NoteMap';
+export { connectMidi, midiSupported, midiUnavailableReason, MidiError } from './midi';
+export type { MidiOptions, MidiConnection, MidiErrorCode } from './midi';
 
 export class Piano extends EventEmitter<PianoEvents> {
   private synth: SynthEngine | null = null;
   private input: InputManager | null = null;
   private container: HTMLElement | null = null;
-  private keys = new Map<number, KeyElement>();
+  private keyboard: KeyboardResult | null = null;
+  private midi: MidiConnection | null = null;
+  private viewBar: HTMLElement | null = null;
   private _destroyed = false;
 
   private _transpose = 0;
@@ -49,18 +52,38 @@ export class Piano extends EventEmitter<PianoEvents> {
     }
 
     const result = createKeyboard(range.first, range.last, root, {
-      keyLabels: options.keyLabels,
-      layout: options.layout,
-      keyHeight: options.keyHeight,
-      minWhiteKeyWidth: options.minWhiteKeyWidth,
+      labels: options.labels,
+      fit: options.fit,
+      onRebuild: (keys) => this.input?.setKeys(keys),
+      onRangeChange: (r) => { this.updateViewButtons(); this.emit('rangeChange', r); },
     });
+    this.keyboard = result;
     this.container = result.container;
-    this.keys = new Map(result.keys.map((k) => [k.midi, k]));
+
+    if (options.fit && options.viewButtons) {
+      const bar = document.createElement('div');
+      bar.className = 'pianova-view-bar';
+      const mk = (text: string, label: string, dir: number) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pianova-view-btn';
+        b.textContent = text;
+        b.setAttribute('aria-label', label);
+        b.addEventListener('click', () => this.shiftView(dir));
+        return b;
+      };
+      bar.append(mk('◀ 8va', 'Shift keyboard down an octave', -1), mk('8va ▶', 'Shift keyboard up an octave', 1));
+      root.insertBefore(bar, result.container);
+      this.viewBar = bar;
+      this.updateViewButtons();
+    }
 
     this.input = new InputManager({
       keys: result.keys,
+      container: result.container,
+      glide: options.glide ?? true,
       keyboardMap: keyboardShortcuts,
-      onNoteOn: (midi: number) => this.handleNoteOn(midi),
+      onNoteOn: (midi: number, velocity?: number) => this.handleNoteOn(midi, velocity),
       onNoteOff: (midi: number) => this.handleNoteOff(midi),
     });
   }
@@ -69,11 +92,12 @@ export class Piano extends EventEmitter<PianoEvents> {
     return raw + this._transpose + this._octaveShift * 12;
   }
 
-  private handleNoteOn(rawMidi: number): void {
+  private handleNoteOn(rawMidi: number, velocity?: number): void {
     const midi = this.adjustMidi(rawMidi);
     const info = parseNote(midi);
+    if (velocity !== undefined) info.velocity = velocity;
     this._lastNote = info;
-    if (this.synth) this.synth.playNote(midi, info.frequency);
+    if (this.synth) this.synth.playNote(midi, info.frequency, velocity);
     if (this.options.onPlayNote) this.options.onPlayNote(info);
     this.emit('noteOn', info);
   }
@@ -114,14 +138,71 @@ export class Piano extends EventEmitter<PianoEvents> {
    */
   setKeyState(note: string | number, state: KeyState | null): void {
     if (this._destroyed) return;
-    const key = this.keys.get(parseNote(note).midi);
-    if (key) applyKeyState(key, state);
+    this.keyboard?.setKeyState(parseNote(note).midi, state);
   }
 
   /** Clears the visual state of every key. */
   clearKeyStates(): void {
     if (this._destroyed) return;
-    this.keys.forEach((key) => applyKeyState(key, null));
+    this.keyboard?.clearKeyStates();
+  }
+
+  /** Highlight keys (MIDI numbers of the physical keys, before transpose) independently of what is pressed. */
+  setActive(midis: Iterable<number>): void {
+    this.keyboard?.setActive(midis);
+  }
+
+  /** Replace the key labels; `null` restores note names. Use this when "do" moves. */
+  setLabels(fn: ((midi: number) => string) | null): void {
+    this.keyboard?.relabel(fn);
+  }
+
+  /** Lowest and highest keys currently shown. Changes with the container size in fit mode. */
+  get visibleRange(): VisibleRange {
+    return this.keyboard?.range() ?? { low: 0, high: 0 };
+  }
+
+  /**
+   * Route Web MIDI into the same note path as touch (highlighting, transpose, events,
+   * audio). `noteOn` events and `onPlayNote` carry `velocity` (0–1) for MIDI notes, and
+   * the built-in synth scales its level by it. Call it from a user action: Chrome shows
+   * a permission prompt. Rejects with a `MidiError`.
+   */
+  async connectMidi(opts: { onDevices?: (names: string[]) => void } = {}): Promise<MidiConnection> {
+    if (this._destroyed) throw new MidiError('failed', 'pianova: piano is destroyed.');
+    this.midi?.close();
+    const conn = await connectMidi({
+      onNoteOn: (midi, velocity) => this.input?.pressKey(midi, velocity),
+      onNoteOff: (midi) => this.input?.releaseKey(midi),
+      onDevices: opts.onDevices,
+    });
+    if (this._destroyed) {
+      conn.close();
+      throw new MidiError('failed', 'pianova: piano was destroyed while connecting.');
+    }
+    this.midi = conn;
+    return conn;
+  }
+
+  /** Fit mode: move the lowest key. A black key rounds down to the white key below. */
+  setViewStart(note: string | number): void {
+    this.keyboard?.setStart(note);
+    this.updateViewButtons();
+  }
+
+  /** Fit mode: shift the visible keys by whole octaves (negative = down). */
+  shiftView(octaves: number): void {
+    const start = this.keyboard?.start();
+    if (start == null) return;
+    this.setViewStart(start + Math.round(octaves) * 12);
+  }
+
+  private updateViewButtons(): void {
+    if (!this.viewBar) return;
+    const start = this.keyboard?.start() ?? 0;
+    const { high } = this.visibleRange;
+    (this.viewBar.firstChild as HTMLButtonElement).disabled = start < 12;
+    (this.viewBar.lastChild as HTMLButtonElement).disabled = high + 12 > 127;
   }
 
   setWaveform(type: WaveformType): void {
@@ -155,14 +236,19 @@ export class Piano extends EventEmitter<PianoEvents> {
   destroy(): void {
     if (this._destroyed) return;
     this._destroyed = true;
+    this.midi?.close();
     this.input?.destroy();
+    this.keyboard?.destroy();
     this.synth?.destroy();
+    this.viewBar?.remove();
     this.container?.remove();
     this.removeAllListeners();
     removeStyles();
     this.synth = null;
     this.input = null;
+    this.midi = null;
+    this.viewBar = null;
+    this.keyboard = null;
     this.container = null;
-    this.keys.clear();
   }
 }

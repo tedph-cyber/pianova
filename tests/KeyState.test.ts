@@ -70,94 +70,26 @@ describe('key state', () => {
   });
 });
 
-describe('keyLabels option', () => {
-  let root: HTMLElement;
-
-  beforeEach(() => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-  });
-
-  afterEach(() => root.remove());
-
-  it('labels white keys with note names by default', () => {
-    const p = new Piano({ root, range: { first: 'C4', last: 'D4' } });
-    expect(key(root, 60).querySelector('.pianova-key-label')?.textContent).toBe('C4');
-    expect(key(root, 61).querySelector('.pianova-key-label')).toBeNull();
-    p.destroy();
-  });
-
-  it('hides labels when false', () => {
-    const p = new Piano({ root, range: { first: 'C4', last: 'D4' }, keyLabels: false });
-    expect(root.querySelector('.pianova-key-label')).toBeNull();
-    p.destroy();
-  });
-
-  it('uses a function for every key, skipping empty results', () => {
-    const p = new Piano({
-      root,
-      range: { first: 'C4', last: 'D4' },
-      keyLabels: (n) => (n.note === 'C#' ? '' : n.note),
-    });
-    expect(key(root, 60).querySelector('.pianova-key-label')?.textContent).toBe('C');
-    expect(key(root, 61).querySelector('.pianova-key-label')).toBeNull();
-    expect(key(root, 62).querySelector('.pianova-key-label')?.textContent).toBe('D');
-    p.destroy();
-  });
-
-  it('restores the configured label after a state label is cleared', () => {
-    const p = new Piano({ root, range: { first: 'C4', last: 'D4' }, keyLabels: (n) => n.note });
-    p.setKeyState(60, { label: 'home' });
-    p.setKeyState(60, null);
-    expect(key(root, 60).querySelector('.pianova-key-label')?.textContent).toBe('C');
-    p.destroy();
-  });
-});
-
-describe('layout option', () => {
-  let root: HTMLElement;
-
-  beforeEach(() => {
-    root = document.createElement('div');
-    document.body.appendChild(root);
-  });
-
-  afterEach(() => root.remove());
-
-  it('keeps fixed pixel widths by default', () => {
-    const p = new Piano({ root, range: { first: 'C4', last: 'B4' } });
-    expect(key(root, 60).style.width).toBe('48px');
-    p.destroy();
-  });
-
-  it('fills the container in fluid layout', () => {
-    const p = new Piano({ root, range: { first: 'C4', last: 'B4' }, layout: 'fluid', keyHeight: 160 });
-    const board = root.querySelector<HTMLElement>('.pianova-keyboard')!;
-    expect(board.style.width).toBe('100%');
-    expect(board.style.height).toBe('160px');
-    expect(key(root, 60).style.flex).toBe('1 1 0%');
-    // 7 white keys; C# sits on the C/D boundary at 1/7 of the width.
-    const blackWidth = (100 / 7) * 0.58;
-    expect(parseFloat(key(root, 61).style.left)).toBeCloseTo(100 / 7 - blackWidth / 2, 3);
-    expect(parseFloat(key(root, 61).style.width)).toBeCloseTo(blackWidth, 3);
-    p.destroy();
-  });
-
-  it('sets a minimum width so small screens scroll instead of squashing', () => {
-    const p = new Piano({ root, range: { first: 'C4', last: 'B4' }, layout: 'fluid', minWhiteKeyWidth: 40 });
-    expect(root.querySelector<HTMLElement>('.pianova-keyboard')!.style.minWidth).toBe('280px');
-    p.destroy();
-  });
-});
-
 describe('accessibility', () => {
   it('exposes each key as a named button', () => {
     const root = document.createElement('div');
     document.body.appendChild(root);
     const p = new Piano({ root, range: { first: 'C4', last: 'C#4' } });
     expect(key(root, 60).getAttribute('role')).toBe('button');
-    expect(key(root, 60).getAttribute('aria-label')).toBe('C4');
+    expect(key(root, 60).textContent).toBe('C4');
     expect(key(root, 61).getAttribute('aria-label')).toBe('C#4');
+    p.destroy();
+    root.remove();
+  });
+
+  it('keeps key state across a fit-mode rebuild', () => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    const p = new Piano({ root, fit: { start: 'C4', minWhiteKeyPx: 40 } });
+    p.setKeyState(60, { mark: true, label: 'x' });
+    p.setLabels(() => 'y');
+    expect(key(root, 60).classList.contains('pianova-marked')).toBe(true);
+    expect(key(root, 60).querySelector('.pianova-key-label')?.textContent).toBe('x');
     p.destroy();
     root.remove();
   });

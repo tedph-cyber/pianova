@@ -1,5 +1,4 @@
-import type { KeyElement, KeyState } from './types';
-import { setKeyLabel } from './Keyboard';
+import type { KeyState } from './types';
 
 const COLORED_CLASS = 'pianova-colored';
 const MARKED_CLASS = 'pianova-marked';
@@ -16,16 +15,13 @@ function setBadge(el: HTMLElement, badge: KeyState['badge']): void {
   el.insertBefore(span, el.querySelector('.pianova-key-label'));
 }
 
-/** Applies a key's full visual state, replacing any previous one. `null` clears it. */
-export function applyKeyState(key: KeyElement, state: KeyState | null): void {
-  const el = key.element;
+/** Applies a key's colour, mark and badge, replacing any previous ones. `null` clears them. The label is handled by the keyboard. */
+export function applyKeyState(el: HTMLElement, state: KeyState | null): void {
   const color = state?.color;
-
   el.classList.toggle(COLORED_CLASS, Boolean(color));
   if (color) el.style.setProperty(COLOR_VAR, color);
   else el.style.removeProperty(COLOR_VAR);
 
   el.classList.toggle(MARKED_CLASS, Boolean(state?.mark));
-  setKeyLabel(el, state?.label ?? key.defaultLabel);
   setBadge(el, state?.badge);
 }
