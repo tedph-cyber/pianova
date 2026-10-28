@@ -117,7 +117,8 @@ export class SynthEngine {
     }
   }
 
-  playNote(midi: number, frequency?: number): void {
+  /** `velocity` is 0–1; omitted plays at full level. */
+  playNote(midi: number, frequency?: number, velocity?: number): void {
     if (this.voices.has(midi)) {
       if (!this._sustain || !this._sustained.has(midi)) return;
       this.releaseVoice(midi);
@@ -138,7 +139,8 @@ export class SynthEngine {
     }
 
     const now = ctx.currentTime;
-    const a = 0.004, d = 0.08, s = 0.5, peak = 0.25;
+    const a = 0.004, d = 0.08, s = 0.5;
+    const peak = 0.25 * (velocity === undefined ? 1 : 0.25 + 0.75 * Math.min(1, Math.max(0, velocity)));
 
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(peak, now + a);

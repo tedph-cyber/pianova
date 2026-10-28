@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6faf8">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="spike.css">
+<title>pianova · sol-fa labels</title>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <span class="brand">pianova</span>
+    <div class="seg" role="group" aria-label="Note names">
+      <button type="button" data-notation="letter">ABC</button>
+      <button type="button" data-notation="solfege">do re mi</button>
+      <button type="button" data-notation="number">123</button>
+    </div>
+    <div class="seg" role="group" aria-label="Sharps or flats">
+      <button type="button" data-acc="sharp">♯</button>
+      <button type="button" data-acc="flat">♭</button>
+    </div>
+    <label class="pill" aria-label="Where do is">do is <select id="key"></select></label>
+    <div class="steps" role="group" aria-label="Move the keyboard">
+      <button type="button" class="step" id="oct-down" aria-label="Lower notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>low</span></button>
+      <button type="button" class="step" id="oct-up" aria-label="Higher notes"><span>high</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </header>
+
+  <section class="readout" id="readout" data-state="hint" aria-live="polite">
+    <div class="main" id="r-main">Tap any key</div>
+    <div class="feel" id="r-feel">The highlighted keys are do.</div>
+    <div class="notes" id="r-notes"></div>
+  </section>
+
+  <div class="piano" id="piano"></div>
+</div>
+<script type="module">
+  import { Piano } from '../dist/pianova.mjs';
+  import { noteLabel, degree } from '../dist/theory.mjs';
+  import { mountOverlays, wireSteps, pop } from './spike-ui.js';
+
+  const $ = (id) => document.getElementById(id);
+  const state = { notation: 'solfege', accidentals: 'sharp', key: 0 };
+  mountOverlays({ title: 'Where is do?', text: 'Move do and watch every key change its name.' });
+
+  for (let pc = 0; pc < 12; pc++) $('key').append(new Option(noteLabel(pc, { accidentals: 'flat' }), pc));
+  const piano = new Piano({ root: '#piano', fit: { start: 'C4', minWhiteKeyPx: 50 } });
+  wireSteps(piano);
+
+  const label = (midi) => noteLabel(midi, state);
+
+  function render() {
+    piano.setLabels(label);
+    const { low, high } = piano.visibleRange;
+    const dos = [];
+    for (let m = low; m <= high; m++) if (degree(m, state.key) === 0) dos.push(m);
+    piano.setActive(dos);
+    for (const b of document.querySelectorAll('[data-notation]')) b.setAttribute('aria-pressed', b.dataset.notation === state.notation);
+    for (const b of document.querySelectorAll('[data-acc]')) b.setAttribute('aria-pressed', b.dataset.acc === state.accidentals);
+    const doName = noteLabel(state.key, { accidentals: state.accidentals });
+    $('r-feel').textContent = 'Do is ' + doName + '. The marked keys are do.';
+    $('r-notes').textContent = 'Showing MIDI ' + low + '–' + high;
+  }
+
+  for (const b of document.querySelectorAll('[data-notation]')) b.onclick = () => { state.notation = b.dataset.notation; render(); };
+  for (const b of document.querySelectorAll('[data-acc]')) b.onclick = () => { state.accidentals = b.dataset.acc; render(); };
+  $('key').onchange = () => { state.key = Number($('key').value); render(); };
+  piano.on('rangeChange', render);
+
+  piano.on('noteOn', (n) => {
+    const r = $('readout');
+    r.dataset.state = 'note';
+    $('r-main').textContent = label(n.midi);
+    pop($('r-main'));
+  });
+  render();
+</script>
+</body>
+</html>

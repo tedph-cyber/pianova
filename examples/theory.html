@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6faf8">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="spike.css">
+<title>pianova · theory</title>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <span class="brand">pianova</span>
+    <span class="status">Hold keys to name them.</span>
+    <span class="spacer"></span>
+    <div class="steps" role="group" aria-label="Move the keyboard">
+      <button type="button" class="step" id="oct-down" aria-label="Lower notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>low</span></button>
+      <button type="button" class="step" id="oct-up" aria-label="Higher notes"><span>high</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <button type="button" class="pill" id="scales-btn" aria-expanded="false" aria-controls="scales">Scales &amp; keys</button>
+  </header>
+
+  <section class="readout" id="readout" data-state="hint" aria-live="polite">
+    <div class="main" id="r-main">Tap any key</div>
+    <div class="feel" id="r-feel"></div>
+    <div class="notes" id="r-notes"></div>
+  </section>
+  <div class="chips" id="keys" style="justify-content:center" aria-label="Likely keys"></div>
+
+  <div class="piano" id="piano"></div>
+</div>
+
+<aside class="panel" id="scales" hidden aria-label="Scales and keys">
+  <div class="panel-head">
+    <strong>Scales &amp; keys</strong>
+    <button type="button" class="icon" id="scales-close" aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <label class="field"><span>Tonic</span><select id="tonic"></select></label>
+  <label class="field"><span>Scale</span><select id="type"></select></label>
+  <label class="field check"><input type="checkbox" id="show"> <span>Show on the keyboard</span></label>
+  <div class="field"><span>Spelled</span><strong id="spelled"></strong></div>
+  <div class="field"><span>Key signature</span><div id="sig"></div></div>
+  <div class="field"><span>Chords in this key</span><div class="chips" id="diatonic"></div></div>
+</aside>
+<script type="module">
+  import { Piano } from '../dist/pianova.mjs';
+  import {
+    identifyChord, chordLabel, findKey, noteLabel, scale, spellScale, keySignature, diatonicChords,
+  } from '../dist/theory.mjs';
+  import { mountOverlays, wireSteps, pop } from './spike-ui.js';
+
+  const $ = (id) => document.getElementById(id);
+  mountOverlays({ title: "Let's name it", text: 'Press keys together and see what you made.' });
+
+  const piano = new Piano({ root: '#piano', fit: { start: 'C3', minWhiteKeyPx: 48 } });
+  wireSteps(piano);
+
+  const held = new Set();
+  const recent = [];
+
+  function renderChord() {
+    const matches = identifyChord([...held]);
+    const readout = $('readout');
+    if (!matches.length) {
+      readout.dataset.state = 'hint';
+      $('r-main').textContent = held.size > 1 ? 'A mystery sound' : recent.length ? '…' : 'Tap any key';
+      $('r-feel').textContent = '';
+      $('r-notes').textContent = '';
+      return;
+    }
+    const l = chordLabel(matches[0]);
+    readout.dataset.state = 'chord';
+    $('r-main').textContent = l.long;
+    $('r-feel').textContent = l.feel;
+    const others = matches.slice(1, 4).map((m) => chordLabel(m).short);
+    $('r-notes').textContent = others.length ? 'Also reads as ' + others.join(', ') : l.short;
+    pop($('r-main'));
+  }
+
+  function renderKeys() {
+    const chips = findKey(recent).slice(0, 3).map((k, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (i === 0 ? ' on' : '');
+      chip.textContent = noteLabel(k.tonic, { accidentals: 'flat' }) + ' ' + k.mode;
+      return chip;
+    });
+    $('keys').replaceChildren(...chips);
+  }
+
+  piano.on('noteOn', (n) => {
+    held.add(n.midi);
+    recent.push(n.midi);
+    if (recent.length > 24) recent.shift();
+    renderChord();
+    renderKeys();
+  });
+  piano.on('noteOff', (n) => { held.delete(n.midi); renderChord(); });
+
+  // --- scales and keys panel -----------------------------------------------
+  const TYPES = ['major', 'naturalMinor', 'harmonicMinor', 'melodicMinor', 'ionian', 'dorian', 'phrygian',
+    'lydian', 'mixolydian', 'aeolian', 'locrian', 'majorPentatonic', 'minorPentatonic', 'blues'];
+  for (let pc = 0; pc < 12; pc++) $('tonic').append(new Option(noteLabel(pc, { accidentals: 'flat' }), pc));
+  for (const t of TYPES) $('type').append(new Option(t.replace(/([A-Z])/g, ' $1').toLowerCase(), t));
+
+  function renderScale() {
+    const tonic = Number($('tonic').value);
+    const type = $('type').value;
+    $('spelled').textContent = spellScale(tonic, type).join('  ');
+
+    const pcs = new Set(scale(tonic, type));
+    const { low, high } = piano.visibleRange;
+    const lit = [];
+    if ($('show').checked) for (let m = low; m <= high; m++) if (pcs.has(m % 12)) lit.push(m);
+    piano.setActive(lit);
+
+    const mode = ['major', 'ionian', 'lydian', 'mixolydian', 'majorPentatonic'].includes(type) ? 'major' : 'minor';
+    const sig = keySignature(tonic, mode);
+    $('sig').textContent = sig.count
+      ? sig.count + ' ' + sig.accidentals + (sig.count > 1 ? 's' : '') + ': ' + sig.notes.join(' ')
+      : 'No sharps or flats';
+    $('diatonic').replaceChildren(...diatonicChords(tonic, mode, { sevenths: true }).map((c) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      const name = chordLabel({ kind: 'chord', root: c.root, quality: c.quality, bass: c.root, inversion: 0, score: 0 }, { accidentals: 'flat' }).short;
+      chip.textContent = c.roman + ' ' + name;
+      return chip;
+    }));
+  }
+  $('tonic').onchange = $('type').onchange = $('show').onchange = renderScale;
+  piano.on('rangeChange', renderScale);
+  renderScale();
+
+  const panel = $('scales');
+  const toggle = (open) => { panel.hidden = !open; $('scales-btn').setAttribute('aria-expanded', open); };
+  $('scales-btn').onclick = () => toggle(panel.hidden);
+  $('scales-close').onclick = () => toggle(false);
+</script>
+</body>
+</html>

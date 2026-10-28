@@ -68,3 +68,17 @@ class MockAudioContext {
 
 // @ts-ignore
 globalThis.AudioContext = MockAudioContext;
+
+// jsdom has no ResizeObserver; tests drive it through `MockResizeObserver.fireAll()`.
+export class MockResizeObserver {
+  static instances = new Set<MockResizeObserver>();
+  constructor(private cb: ResizeObserverCallback) { MockResizeObserver.instances.add(this); }
+  observe() {}
+  unobserve() {}
+  disconnect() { MockResizeObserver.instances.delete(this); }
+  static fireAll() {
+    for (const o of [...MockResizeObserver.instances]) o.cb([], o as unknown as ResizeObserver);
+  }
+}
+// @ts-ignore
+globalThis.ResizeObserver = MockResizeObserver;

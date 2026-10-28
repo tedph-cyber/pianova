@@ -1,0 +1,150 @@
+/* Shared look for the 0.2 examples (theory, solfa-labels, midi): a full-screen app with a
+   top bar, a big readout and a keyboard that fills the rest. Landscape phones first.
+   System fonts only. The same visual language as the Masteric core-loop spike. */
+
+:root {
+  --bg: oklch(0.985 0.005 165);
+  --surface: oklch(1 0 0);
+  --ink: oklch(0.25 0.03 165);
+  --muted: oklch(0.5 0.025 165);
+  --line: oklch(0.88 0.01 165);
+  --accent: oklch(0.58 0.125 168);
+  /* Mixed in oklab: in oklch, white's hue of 0 drags the teal toward pink. */
+  --accent-soft: color-mix(in oklab, var(--accent) 18%, var(--surface));
+  --accent-mid: color-mix(in oklab, var(--accent) 38%, var(--surface));
+  --accent-deep: color-mix(in oklab, var(--accent) 55%, black);
+  --soft: color-mix(in oklch, var(--ink) 6%, transparent);
+  --shadow: 0 1px 3px oklch(0.25 0.03 165 / 0.14);
+  --radius: 14px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+}
+
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.app {
+  height: 100dvh; display: flex; flex-direction: column; gap: 6px;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+
+/* ---- top bar ---- */
+.bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand { font-weight: 800; letter-spacing: -0.01em; font-size: 17px; padding-right: 4px; user-select: none; -webkit-user-select: none; }
+.spacer { flex: 1; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--soft); }
+.seg button { border: 0; background: transparent; min-height: 40px; min-width: 44px; padding: 0 14px; border-radius: 999px; font-weight: 650; font-size: 15px; color: var(--muted); }
+.seg button[aria-pressed='true'] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.steps { display: inline-flex; gap: 4px; }
+.step, .icon, .pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-height: 44px; min-width: 44px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 999px; font-weight: 650; font-size: 14px;
+}
+.step { padding: 0 12px 0 8px; }
+.step + .step { padding: 0 8px 0 12px; }
+.step:disabled { opacity: 0.4; cursor: default; }
+.pill { padding: 0 16px; }
+.pill.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.pill:disabled { opacity: 0.5; cursor: default; }
+select.pill { appearance: none; padding-right: 14px; }
+.status { font-size: 14px; color: var(--muted); }
+
+/* ---- readout ---- */
+.readout { flex: 0 0 auto; min-height: 96px; display: grid; align-content: center; justify-items: center; text-align: center; gap: 2px; }
+.readout .main { font-size: clamp(30px, 8vh, 60px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.readout[data-state='hint'] .main { color: var(--muted); font-weight: 700; font-size: clamp(24px, 6vh, 44px); }
+.readout .feel { font-size: clamp(15px, 3.4vh, 20px); color: var(--muted); min-height: 1.3em; }
+.readout .notes { font-size: 14px; color: var(--muted); min-height: 1.3em; font-variant-numeric: tabular-nums; }
+.pop { animation: pop 0.22s ease-out; }
+@keyframes pop { from { transform: scale(0.94); opacity: 0.5; } to { transform: none; opacity: 1; } }
+
+/* ---- the pianova keyboard, themed and sized to fill the screen ---- */
+.piano { flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; }
+.piano .pianova-keyboard {
+  --pianova-height: auto;
+  --pianova-black-height: 60%;
+  --pianova-white-bg: var(--surface);
+  --pianova-white-hover: var(--surface);
+  --pianova-white-active: var(--accent-mid);
+  --pianova-white-lit: var(--accent-soft);
+  --pianova-lit-outline: var(--accent);
+  --pianova-lit-dot: var(--accent);
+  --pianova-lit-dot-black: var(--surface);
+  --pianova-black-bg: var(--ink);
+  --pianova-black-hover: var(--ink);
+  --pianova-black-active: var(--accent-deep);
+  --pianova-black-lit: color-mix(in oklab, var(--accent) 60%, var(--ink));
+  --pianova-key-border: var(--line);
+  --pianova-black-border: oklch(0.15 0.01 165);
+  --pianova-label-color: var(--muted);
+  --pianova-black-label-color: oklch(0.88 0.01 165);
+  flex: 1 1 auto; min-height: 140px; border-radius: var(--radius); background: var(--ink);
+}
+.piano .pianova-white-key { border-top: 0; border-radius: 0 0 10px 10px; }
+.piano .pianova-black-key { border-top: 0; border-radius: 0 0 8px 8px; }
+.piano .pianova-white-key.pianova-active { box-shadow: inset 0 -6px 0 var(--accent), inset 0 5px 6px rgb(0 0 0 / 0.18); }
+.piano .pianova-key-label { font-weight: 700; font-size: clamp(12px, 2.6vh, 17px); padding-bottom: 8px; }
+.piano .pianova-black-key .pianova-key-label { font-size: clamp(10px, 2vh, 12px); padding-bottom: 4px; }
+
+/* ---- panel (opened from the bar) ---- */
+.panel {
+  position: fixed; z-index: 40; top: 60px; right: 12px; width: min(400px, calc(100vw - 24px));
+  max-height: calc(100dvh - 72px); overflow: auto; display: grid; gap: 14px; padding: 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 40px oklch(0.25 0.03 165 / 0.2);
+}
+.panel-head { display: flex; align-items: center; justify-content: space-between; }
+.field { display: grid; gap: 6px; font-size: 14px; }
+.field > span { color: var(--muted); }
+.field.check { display: flex; align-items: center; gap: 10px; }
+.field.check input { width: 22px; height: 22px; accent-color: var(--accent); }
+.field select { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; }
+.field strong { font-size: 18px; letter-spacing: 0.02em; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 14px; background: var(--surface); font-variant-numeric: tabular-nums; }
+.chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); font-weight: 650; }
+
+/* ---- overlays ---- */
+.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: var(--bg); text-align: center; }
+.start-card h1 { margin: 0 0 8px; font-size: clamp(30px, 7vh, 48px); letter-spacing: -0.02em; }
+.start-card p { margin: 0 0 24px; color: var(--muted); font-size: 18px; }
+.start-btn { min-height: 72px; min-width: 220px; padding: 0 40px; border: 0; border-radius: 999px; background: var(--accent); color: var(--surface); font-size: 24px; font-weight: 800; box-shadow: var(--shadow); }
+.rotate { display: none; z-index: 60; }
+.rotate-art { width: 160px; height: 110px; margin-bottom: 12px; color: var(--ink); }
+@media (orientation: portrait) and (max-width: 760px) { .rotate { display: grid; } }
+
+/* ---- desktop: a framed instrument on a dark stage instead of the whole window ---- */
+@media (min-width: 900px) and (min-height: 560px) {
+  body {
+    display: grid; place-items: center; padding: 24px;
+    background: radial-gradient(ellipse at 50% 30%, oklch(0.36 0.05 168), oklch(0.17 0.025 168) 75%) fixed;
+  }
+  .app {
+    width: min(1180px, 100%); height: min(660px, calc(100dvh - 48px));
+    padding: 16px 20px 20px; gap: 10px;
+    background: var(--bg); border-radius: 22px;
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 30px 80px oklch(0 0 0 / 0.55), 0 6px 0 oklch(0.3 0.03 168);
+  }
+  .readout { flex: 1 1 auto; }
+  /* A dark fallboard rail above the keys, like the front of a real instrument. */
+  .piano { flex: 0 0 min(300px, 46%); border-top: 12px solid var(--ink); border-radius: 6px 6px 14px 14px; overflow: hidden; }
+  .stage { flex: 0 0 min(300px, 46%) !important; }
+  .stage .piano { flex: 1 1 auto; }
+}
+
+/* ---- short landscape phones ---- */
+@media (max-height: 430px) {
+  .app { gap: 4px; }
+  .brand { display: none; }
+  .seg button { min-height: 36px; padding: 0 11px; font-size: 14px; }
+  .step, .icon, .pill { min-height: 40px; min-width: 40px; }
+  .readout { min-height: 72px; }
+  .readout .notes { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) { .pop { animation: none; } }

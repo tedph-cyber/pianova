@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6faf8">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="spike.css">
+<title>pianova · Web MIDI</title>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <span class="brand">pianova</span>
+    <button type="button" class="pill primary" id="connect">Connect MIDI</button>
+    <span class="status" id="status">Not connected.</span>
+    <span class="spacer"></span>
+    <div class="steps" role="group" aria-label="Move the keyboard">
+      <button type="button" class="step" id="oct-down" aria-label="Lower notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>low</span></button>
+      <button type="button" class="step" id="oct-up" aria-label="Higher notes"><span>high</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </header>
+
+  <section class="readout" id="readout" data-state="hint" aria-live="polite">
+    <div class="main" id="r-main">Play your MIDI keyboard</div>
+    <div class="feel" id="r-feel">Touch works too.</div>
+    <div class="notes" id="r-notes">No devices.</div>
+  </section>
+
+  <div class="piano" id="piano"></div>
+</div>
+<script type="module">
+  import { Piano, midiUnavailableReason } from '../dist/pianova.mjs';
+  import { mountOverlays, wireSteps, pop } from './spike-ui.js';
+
+  const $ = (id) => document.getElementById(id);
+  mountOverlays({ title: 'MIDI keyboard', text: 'Plug one in, then press Connect MIDI.' });
+
+  const piano = new Piano({ root: '#piano', fit: { start: 'C3', minWhiteKeyPx: 44 } });
+  wireSteps(piano);
+
+  const why = midiUnavailableReason();
+  if (why) {
+    $('status').textContent = why.message;
+    $('connect').disabled = true;
+  }
+
+  piano.on('noteOn', (n) => {
+    $('readout').dataset.state = 'note';
+    $('r-main').textContent = n.name;
+    // velocity is only present for notes that arrived over MIDI
+    $('r-feel').textContent = n.velocity === undefined ? 'touch' : 'velocity ' + Math.round(n.velocity * 127) + ' of 127';
+    pop($('r-main'));
+  });
+
+  // Must run from a user action: Chrome shows a permission prompt.
+  $('connect').onclick = async () => {
+    try {
+      await piano.connectMidi({
+        onDevices: (names) => {
+          $('status').textContent = names.length ? 'Connected.' : 'Connected. Plug in a MIDI keyboard.';
+          $('r-notes').textContent = names.length ? names.join(' · ') : 'No devices.';
+        },
+      });
+    } catch (err) {
+      $('status').textContent = err.message;
+    }
+  };
+</script>
+</body>
+</html>

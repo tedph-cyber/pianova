@@ -15,6 +15,12 @@ describe('SynthEngine', () => {
     s.destroy();
   });
 
+  it('playNote accepts a velocity, including out-of-range values', () => {
+    const s = new SynthEngine('sine');
+    expect(() => { s.playNote(60, undefined, 0.2); s.playNote(62, undefined, 5); s.playNote(64, undefined, -1); }).not.toThrow();
+    s.destroy();
+  });
+
   it('stopAll stops all voices', () => {
     const s = new SynthEngine();
     s.playNote(60);
