@@ -61,6 +61,7 @@ export class InputManager {
   private boundVisibility: () => void;
   private boundKeyDown: (e: KeyboardEvent) => void;
   private boundKeyUp: (e: KeyboardEvent) => void;
+  private boundKeyActivate: (e: KeyboardEvent) => void;
 
   constructor(config: InputConfig) {
     this.keys = config.keys;
@@ -94,6 +95,7 @@ export class InputManager {
     this.boundVisibility = this.onVisibilityChange.bind(this);
     this.boundKeyDown = this.onKeyDown.bind(this);
     this.boundKeyUp = this.onKeyUp.bind(this);
+    this.boundKeyActivate = this.onKeyActivate.bind(this);
 
     this.attachEvents();
   }
@@ -107,6 +109,8 @@ export class InputManager {
       c.addEventListener('pointercancel', this.boundPointerEnd);
       c.addEventListener('lostpointercapture', this.boundPointerEnd);
       c.addEventListener('contextmenu', this.boundContextMenu);
+      c.addEventListener('keydown', this.boundKeyActivate);
+      c.addEventListener('keyup', this.boundKeyActivate);
     }
     document.addEventListener('visibilitychange', this.boundVisibility);
 
@@ -125,6 +129,8 @@ export class InputManager {
       c.removeEventListener('pointercancel', this.boundPointerEnd);
       c.removeEventListener('lostpointercapture', this.boundPointerEnd);
       c.removeEventListener('contextmenu', this.boundContextMenu);
+      c.removeEventListener('keydown', this.boundKeyActivate);
+      c.removeEventListener('keyup', this.boundKeyActivate);
     }
     document.removeEventListener('visibilitychange', this.boundVisibility);
 
@@ -140,6 +146,17 @@ export class InputManager {
     if (!hit || !this.container?.contains(hit)) return null;
     const midi = parseInt(hit.dataset.midi!, 10);
     return Number.isNaN(midi) ? null : midi;
+  }
+
+  /** Enter or Space on a focused key plays it, like a button. */
+  private onKeyActivate(e: KeyboardEvent): void {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const midi = this.midiOf(e.target);
+    if (midi === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'keyup') this.noteOff(midi);
+    else if (!e.repeat) this.noteOn(midi);
   }
 
   private onPointerDown(e: PointerEvent): void {

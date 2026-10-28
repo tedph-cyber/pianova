@@ -5,10 +5,10 @@ import { InputManager } from './InputManager';
 import { parseNote } from './NoteMap';
 import { removeStyles } from './css';
 import { connectMidi, MidiError, type MidiConnection } from './midi';
-import type { PianoOptions, PianoEvents, NoteInfo, WaveformType, VisibleRange } from './types';
+import type { PianoOptions, PianoEvents, NoteInfo, WaveformType, VisibleRange, KeyState } from './types';
 
 export type {
-  PianoOptions, PianoEvents, NoteInfo, WaveformType, NoteName, NoteRange, FitOptions, VisibleRange,
+  PianoOptions, PianoEvents, NoteInfo, WaveformType, NoteName, NoteRange, FitOptions, VisibleRange, KeyState,
 } from './types';
 export { parseNote, midiToNote, midiToFrequency, midiToNoteName } from './NoteMap';
 export { connectMidi, midiSupported, midiUnavailableReason, MidiError } from './midi';
@@ -128,6 +128,23 @@ export class Piano extends EventEmitter<PianoEvents> {
   stopNote(note: string | number): void {
     if (this._destroyed) return;
     this.input?.releaseKey(parseNote(note).midi);
+  }
+
+  /**
+   * Sets a key's visual state (colour, mark, label, badge) without playing it.
+   * Replaces the key's previous state; `null` clears it. Keys are addressed by
+   * their position on the keyboard, ignoring transpose and octave shift.
+   * Keys outside the range are ignored.
+   */
+  setKeyState(note: string | number, state: KeyState | null): void {
+    if (this._destroyed) return;
+    this.keyboard?.setKeyState(parseNote(note).midi, state);
+  }
+
+  /** Clears the visual state of every key. */
+  clearKeyStates(): void {
+    if (this._destroyed) return;
+    this.keyboard?.clearKeyStates();
   }
 
   /** Highlight keys (MIDI numbers of the physical keys, before transpose) independently of what is pressed. */

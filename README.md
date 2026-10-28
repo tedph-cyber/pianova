@@ -114,10 +114,25 @@ When `onPlayNote`/`onStopNote` are **omitted**, the built-in Web Audio synth is 
 | `modulation` | `(depth: number) => void` | Set LFO vibrato depth (0–1) |
 | `setActive` | `(midis: Iterable<number>) => void` | Highlight keys from outside (MIDI input, lesson targets), independent of what is pressed |
 | `setLabels` | `(fn: ((midi) => string) \| null) => void` | Replace the key labels; `null` restores note names |
+| `setKeyState` | `(note: string \| number, state: KeyState \| null) => void` | Set a key's look without playing it; replaces its previous state, `null` clears |
+| `clearKeyStates` | `() => void` | Clear every key's state |
 | `connectMidi` | `(opts?: { onDevices }) => Promise<MidiConnection>` | Route Web MIDI into the piano, velocity included. User action only. See [Web MIDI](#web-midi) |
 | `setViewStart` | `(note: string \| number) => void` | Fit mode: move the lowest key |
 | `shiftView` | `(octaves: number) => void` | Fit mode: shift the visible keys by whole octaves |
 | `destroy` | `() => void` | Remove DOM, stop audio, disconnect events (idempotent) |
+
+**`KeyState` shape** (all optional):
+
+```ts
+{
+  color?: string;          // any CSS background; lights the key silently (e.g. show an answer)
+  mark?: boolean;          // outline the key (e.g. a target note)
+  label?: string;          // replace the key's label while set
+  badge?: string | number; // small badge, e.g. a finger number
+}
+```
+
+Keys are addressed by their position on the keyboard, ignoring `transpose` and `octaveShift`. State survives `fit`-mode resizes and `setLabels`. A pressed key still shows its active colour over a state colour. Keys are focusable buttons: Tab to one and press Enter or Space to play it.
 
 #### Properties
 
@@ -203,6 +218,8 @@ All visual styles are controlled through CSS custom properties on the `.pianova-
 | `--pianova-black-border` | `#333` | Black key border |
 | `--pianova-label-color` | `#999` | Note label text |
 | `--pianova-font` | `system-ui` | Label font family |
+| `--pianova-mark-color` | `#1a1a1a` | Outline of marked keys |
+| `--pianova-badge-bg` / `-border` / `-color` | `#fff` / `#1a1a1a` / `#1a1a1a` | Key badge fill, border and text |
 | `--pianova-height` | `200px` | Keyboard height. Set to `auto` inside a flex column to fill the screen |
 | `--pianova-black-height` | `62%` | Black key height, relative to the keyboard |
 

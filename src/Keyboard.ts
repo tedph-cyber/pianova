@@ -1,6 +1,7 @@
-import type { KeyElement, FitOptions, VisibleRange } from './types';
+import type { KeyElement, FitOptions, KeyState, VisibleRange } from './types';
 import { getNoteRange, isWhiteKey, isBlackKey, parseNote } from './NoteMap';
 import { injectStyles } from './css';
+import { applyKeyState } from './KeyState';
 
 const WK_W = 48;
 const BK_W = 30;
@@ -29,6 +30,9 @@ export interface KeyboardResult {
   start(): number | null;
   /** Highlight keys independently of what is pressed. Replaces the previous set. */
   setActive(midis: Iterable<number>): void;
+  /** Set one key's colour, mark, label and badge. Survives resizes and relabelling. `null` clears. */
+  setKeyState(midi: number, state: KeyState | null): void;
+  clearKeyStates(): void;
   range(): VisibleRange;
   destroy(): void;
 }
@@ -55,17 +59,18 @@ export function createKeyboard(
   let labels = options.labels ?? null;
   let keys: KeyElement[] = [];
   let lit = new Set<number>();
+  const states = new Map<number, KeyState>();
   let observer: ResizeObserver | null = null;
   let built = false;
   let fitWhites = 0;
   let fitStart = 0;
 
   function setLabel(el: HTMLElement, midi: number, black: boolean): void {
-    const text = labels ? labels(midi) : black ? '' : parseNote(midi).name;
+    const text = states.get(midi)?.label ?? (labels ? labels(midi) : black ? '' : parseNote(midi).name);
     let span = el.querySelector<HTMLElement>('.pianova-key-label');
     if (!text) {
       span?.remove();
-      el.removeAttribute('aria-label');
+      el.setAttribute('aria-label', parseNote(midi).name);
       return;
     }
     if (!span) {
@@ -89,6 +94,8 @@ export function createKeyboard(
       whiteIndexMap.set(n.midi, i);
       const el = document.createElement('div');
       el.className = 'pianova-white-key';
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
       el.dataset.midi = String(n.midi);
       el.style.width = percent ? `${100 / whiteCount}%` : `${WK_W}px`;
       setLabel(el, n.midi, false);
@@ -101,6 +108,8 @@ export function createKeyboard(
       if (leftIdx === undefined) return;
       const el = document.createElement('div');
       el.className = 'pianova-black-key';
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
       el.dataset.midi = String(n.midi);
       el.style.position = 'absolute';
       el.style.top = '0';
@@ -119,6 +128,11 @@ export function createKeyboard(
     });
 
     paintLit();
+    paintStates();
+  }
+
+  function paintStates(): void {
+    for (const k of keys) applyKeyState(k.element, states.get(k.midi) ?? null);
   }
 
   function paintLit(): void {
@@ -183,6 +197,19 @@ export function createKeyboard(
     setActive(midis) {
       lit = new Set(midis);
       paintLit();
+    },
+    setKeyState(midi, state) {
+      if (state) states.set(midi, state);
+      else states.delete(midi);
+      const key = keys.find((k) => k.midi === midi);
+      if (!key) return;
+      applyKeyState(key.element, state);
+      setLabel(key.element, midi, key.isBlack);
+    },
+    clearKeyStates() {
+      states.clear();
+      paintStates();
+      for (const k of keys) setLabel(k.element, k.midi, k.isBlack);
     },
     setStart(note) {
       if (!options.fit) return;

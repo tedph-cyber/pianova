@@ -76,6 +76,12 @@ const CSS = `
   background: var(--pianova-lit-dot-black, #ffd27a);
 }
 
+/* Colour set via setKeyState(); a pressed key still shows its active colour. */
+.pianova-white-key.pianova-colored,
+.pianova-black-key.pianova-colored {
+  background: var(--pianova-key-color);
+}
+
 /* Pressed keys sink and show an inner shadow, so the state is not colour-only. */
 .pianova-white-key.pianova-active {
   background: var(--pianova-white-active, #b0d0f0);
@@ -143,6 +149,30 @@ const CSS = `
 
 .pianova-black-key .pianova-key-label {
   color: var(--pianova-black-label-color, #ddd);
+}
+
+.pianova-white-key.pianova-marked {
+  box-shadow: inset 0 0 0 3px var(--pianova-mark-color, #1a1a1a);
+}
+
+.pianova-black-key.pianova-marked {
+  box-shadow: 0 0 0 3px var(--pianova-mark-color, #1a1a1a), inset 0 0 0 2px var(--pianova-white-bg, #ffffff);
+}
+
+.pianova-key-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1.5px solid var(--pianova-badge-border, #1a1a1a);
+  background: var(--pianova-badge-bg, #ffffff);
+  color: var(--pianova-badge-color, #1a1a1a);
+  font: 700 12px var(--pianova-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  pointer-events: none;
 }
 `;
 

@@ -32,6 +32,18 @@ export interface VisibleRange {
   high: number;
 }
 
+/** Per-key visual state, independent of whether the key is being played. */
+export interface KeyState {
+  /** Any CSS background value. Lights the key without playing it. */
+  color?: string;
+  /** Outline the key, e.g. to mark a target note. */
+  mark?: boolean;
+  /** Replaces the key's label while the state is set. */
+  label?: string;
+  /** Small badge on the key, e.g. a finger number. */
+  badge?: string | number;
+}
+
 export interface PianoOptions {
   range?: NoteRange;
   /** Alternative to `range`: show as many white keys as the container fits. Takes precedence over `range`. */
